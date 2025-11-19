@@ -7,10 +7,16 @@ import com.webisbrian.hospital_bed_planner.application.usecase.PlacePatientUseCa
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.model.Sex;
 import com.webisbrian.hospital_bed_planner.domain.model.StayType;
+import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
+import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
+import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
 import com.webisbrian.hospital_bed_planner.domain.service.PlacementService;
 import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryBedRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryHospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryPatientRepository;
+import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlBedRepository;
+import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlHospitalStayRepository;
+import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlPatientRepository;
 
 import java.time.LocalDate;
 import java.util.Scanner;
@@ -22,10 +28,20 @@ public class HospitalBedPlannerConsoleApp {
 
     private final Scanner scanner = new Scanner(System.in);
 
-    // Repositories
-    private final InMemoryPatientRepository patientRepository = new InMemoryPatientRepository();
-    private final InMemoryBedRepository bedRepository = new InMemoryBedRepository();
-    private final InMemoryHospitalStayRepository hospitalStayRepository = new InMemoryHospitalStayRepository();
+    // Configuration DB (adapte ces valeurs à ton environnement local)
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/hospital_bed_manager?serverTimezone=Europe/Paris";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "root";
+
+    // Repositories MySQL
+    private final PatientRepository patientRepository =
+            new MysqlPatientRepository(DB_URL, DB_USER, DB_PASSWORD);
+
+    private final BedRepository bedRepository =
+            new MysqlBedRepository(DB_URL, DB_USER, DB_PASSWORD);
+
+    private final HospitalStayRepository hospitalStayRepository =
+            new MysqlHospitalStayRepository(DB_URL, DB_USER, DB_PASSWORD);
 
     // Domain services
     private final PlacementService placementService = new PlacementService(
