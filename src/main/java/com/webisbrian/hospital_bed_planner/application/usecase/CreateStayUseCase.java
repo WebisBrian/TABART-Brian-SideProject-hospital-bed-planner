@@ -5,6 +5,8 @@ import com.webisbrian.hospital_bed_planner.domain.model.StayType;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 
@@ -13,6 +15,8 @@ import java.time.LocalDate;
  * en spécifiant explicitement le lit (pas de placement automatique).
  */
 public class CreateStayUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(CreateStayUseCase.class);
 
     private final HospitalStayRepository hospitalStayRepository;
     private final PatientRepository patientRepository;
@@ -28,7 +32,7 @@ public class CreateStayUseCase {
 
     /**
      * Crée un séjour avec un lit choisi explicitement.
-     *
+     * <p>
      * Règles :
      * - stayId, patientId, bedId, admissionDate, stayType obligatoires.
      * - patientId doit exister.
@@ -43,7 +47,8 @@ public class CreateStayUseCase {
                                    LocalDate dischargeDatePlanned,
                                    StayType stayType) {
 
-        // 1. Validations de base
+        logger.info("Creating stay with id{}", stayId);
+
         if (stayId == null || stayId.isBlank())
             throw new IllegalArgumentException("Stay id cannot be null or blank");
 
@@ -59,18 +64,21 @@ public class CreateStayUseCase {
         if (stayType == null)
             throw new IllegalArgumentException("Stay type cannot be null");
 
-        if (dischargeDatePlanned != null && dischargeDatePlanned.isBefore(admissionDate))
+        if (dischargeDatePlanned != null && dischargeDatePlanned.isBefore(admissionDate)) {
+            logger.warn("Invalid stay dates: admission={}, plannedDischarge={}", admissionDate, dischargeDatePlanned);
             throw new IllegalArgumentException("Planned discharge date cannot be before admission date");
+        }
 
-        // 2. Vérifier existence patient
-        if (patientRepository.findById(patientId).isEmpty())
+        if (patientRepository.findById(patientId).isEmpty()) {
+            logger.warn("Attempt to create stay with non-existing patientId={}", patientId);
             throw new IllegalArgumentException("Patient with id " + patientId + " does not exist");
+        }
 
-        // 3. Vérifier existence lit
-        if (bedRepository.findById(bedId).isEmpty())
+        if (bedRepository.findById(bedId).isEmpty()) {
+            logger.warn("Attempt to create stay with non-existing bedId={}", bedId);
             throw new IllegalArgumentException("Bed with id " + bedId + " does not exist");
+        }
 
-        // 4. Création du séjour
         HospitalStay stay = new HospitalStay(
                 stayId,
                 patientId,
@@ -81,9 +89,9 @@ public class CreateStayUseCase {
                 null // date de sortie effective
         );
 
-        // 5. Persistance
         hospitalStayRepository.save(stay);
 
+        logger.info("Stay created with id {}", stayId);
         return stay;
     }
 }

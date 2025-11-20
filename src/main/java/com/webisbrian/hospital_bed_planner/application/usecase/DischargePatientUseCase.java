@@ -2,6 +2,8 @@ package com.webisbrian.hospital_bed_planner.application.usecase;
 
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -11,6 +13,8 @@ import java.util.Optional;
  * d'un patient pour un séjour donné.
  */
 public class DischargePatientUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(DischargePatientUseCase.class);
 
     private final HospitalStayRepository hospitalStayRepository;
 
@@ -38,7 +42,9 @@ public class DischargePatientUseCase {
      *                                  ou si le séjour est déjà clôturé
      */
     public HospitalStay discharge(String stayId, LocalDate dischargeDate) {
-        // 1. Validation des paramètres
+
+        logger.info("Discharging patient with id {}", stayId);
+
         if (stayId == null || stayId.isBlank()) {
             throw new IllegalArgumentException("Stay id cannot be null or blank");
         }
@@ -46,25 +52,26 @@ public class DischargePatientUseCase {
             throw new IllegalArgumentException("Discharge date cannot be null");
         }
 
-        // 2. Recherche du séjour
+        // 1. Recherche du séjour
         Optional<HospitalStay> optionalStay = hospitalStayRepository.findById(stayId);
         if (optionalStay.isEmpty()) {
+            logger.warn("Attempt to discharge non-existing hospital stay with id {}", stayId);
             throw new IllegalArgumentException("Hospital stay with id " + stayId + " does not exist");
         }
 
         HospitalStay existingStay = optionalStay.get();
 
-        // 3. Vérifier qu'il n'est pas déjà clôturé
+        // 2. Vérifier qu'il n'est pas déjà clôturé
         if (existingStay.getDischargeDateEffective() != null) {
             throw new IllegalArgumentException("Hospital stay with id " + stayId + " is already discharged");
         }
 
-        // 4. Vérifier la cohérence de la date de sortie
+        // 3. Vérifier la cohérence de la date de sortie
         if (dischargeDate.isBefore(existingStay.getAdmissionDate())) {
             throw new IllegalArgumentException("Discharge date cannot be before admission date");
         }
 
-        // 5. Créer une nouvelle instance immuable avec la date de sortie effective renseignée
+        // 4. Créer une nouvelle instance immuable avec la date de sortie effective renseignée
         HospitalStay updatedStay = new HospitalStay(
                 existingStay.getId(),
                 existingStay.getPatientId(),
@@ -75,10 +82,9 @@ public class DischargePatientUseCase {
                 dischargeDate
         );
 
-        // 6. Persister le séjour mis à jour
         hospitalStayRepository.save(updatedStay);
 
-        // 7. Retourner le séjour mis à jour
+        logger.info("Patient discharged with id {}", stayId);
         return updatedStay;
     }
 }

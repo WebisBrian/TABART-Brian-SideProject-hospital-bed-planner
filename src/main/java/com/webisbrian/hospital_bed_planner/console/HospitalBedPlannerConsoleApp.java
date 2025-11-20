@@ -14,6 +14,8 @@ import com.webisbrian.hospital_bed_planner.domain.service.PlacementService;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlBedRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlHospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlPatientRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +27,8 @@ import java.util.Scanner;
  * Point d'entrée console de l'application Hospital Bed Planner.
  */
 public class HospitalBedPlannerConsoleApp {
+
+    private static final Logger logger = LoggerFactory.getLogger(HospitalBedPlannerConsoleApp.class);
 
     private final Scanner scanner = new Scanner(System.in);
 
@@ -70,23 +74,30 @@ public class HospitalBedPlannerConsoleApp {
     }
 
     public void run() {
+        logger.info("Starting HospitalBedPlannerConsoleApp");
         boolean running = true;
 
         while (running) {
             printMainMenu();
             String choice = scanner.nextLine().trim();
 
-            switch (choice) {
-                case "1" -> handleCreatePatient();
-                case "2" -> handleCreateStay();
-                case "3" -> handlePlacePatient();
-                case "4" -> handleDischargePatient();
-                case "5" -> handleVisualisationMenu();
-                case "0" -> {
-                    System.out.println("Au revoir.");
-                    running = false;
+            try {
+                switch (choice) {
+                    case "1" -> handleCreatePatient();
+                    case "2" -> handleCreateStay();
+                    case "3" -> handlePlacePatient();
+                    case "4" -> handleDischargePatient();
+                    case "5" -> handleVisualisationMenu();
+                    case "0" -> {
+                        System.out.println("Au revoir.");
+                        logger.info("Application stopped by user");
+                        running = false;
+                    }
+                    default -> System.out.println("Choix invalide, merci de réessayer.");
                 }
-                default -> System.out.println("Choix invalide, merci de réessayer.");
+            } catch (Exception e) {
+                logger.error("Unexpected error in main loop", e);
+                System.out.println("Une erreur inattendue est survenue. Consultez les logs.");
             }
         }
     }
@@ -139,6 +150,7 @@ public class HospitalBedPlannerConsoleApp {
         if (notes.isEmpty()) notes = null;
 
         try {
+            logger.info("Console: creating patient id={}", id);
             createPatientUseCase.createPatient(
                     id,
                     firstName,
@@ -152,6 +164,7 @@ public class HospitalBedPlannerConsoleApp {
             );
             System.out.println("Patient créé avec succès !");
         } catch (Exception e) {
+            logger.error("Error while creating patient id={}", id, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -182,6 +195,7 @@ public class HospitalBedPlannerConsoleApp {
         }
 
         try {
+            logger.info("Console: creating stay id={}", stayId);
             createStayUseCase.createStay(
                     stayId,
                     patientId,
@@ -192,6 +206,7 @@ public class HospitalBedPlannerConsoleApp {
             );
             System.out.println("Séjour créé avec succès !");
         } catch (Exception e) {
+            logger.error("Error while creating stay id={}", stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -220,6 +235,7 @@ public class HospitalBedPlannerConsoleApp {
         }
 
         try {
+            logger.info("Console: placing patient id={} on stay id={}", patientId, stayId);
             var result = placePatientUseCase.placePatient(
                     stayId,
                     patientId,
@@ -242,6 +258,7 @@ public class HospitalBedPlannerConsoleApp {
             System.out.println("  - Admission : " + stay.getAdmissionDate());
             System.out.println("  - Sortie prévue : " + stay.getDischargeDatePlanned());
         } catch (Exception e) {
+            logger.error("Error while placing patient id={} on stay id={}", patientId, stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -255,6 +272,7 @@ public class HospitalBedPlannerConsoleApp {
         LocalDate dischargeDate = readDateFlexible("Date de sortie effective");
 
         try {
+            logger.info("Console: discharging stay id={}", stayId);
             HospitalStay updatedStay = dischargePatientUseCase.discharge(stayId, dischargeDate);
 
             System.out.println("Sortie enregistrée avec succès !");
@@ -265,11 +283,13 @@ public class HospitalBedPlannerConsoleApp {
             System.out.println("  - Sortie prévue : " + updatedStay.getDischargeDatePlanned());
             System.out.println("  - Sortie effective : " + updatedStay.getDischargeDateEffective());
         } catch (Exception e) {
+            logger.error("Error while discharging stay id={}", stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
 
     private void handleVisualisationMenu() {
+        logger.info("Console: entering visualisation menu");
         boolean back = false;
 
         while (!back) {
@@ -353,6 +373,7 @@ public class HospitalBedPlannerConsoleApp {
     // --- Méthodes utilitaires ---
 
     private Properties loadDbProperties() {
+        logger.info("Loading db.properties");
         Properties properties = new Properties();
 
         try (InputStream input = getClass().getClassLoader().getResourceAsStream("db.properties")) {
@@ -362,6 +383,7 @@ public class HospitalBedPlannerConsoleApp {
             properties.load(input);
             return properties;
         } catch (IOException e) {
+            logger.error("Failed to load db.properties", e);
             throw new IllegalStateException("Failed to load db.properties", e);
         }
     }

@@ -3,6 +3,8 @@ package com.webisbrian.hospital_bed_planner.infrastructure.mysql;
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.model.StayType;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -19,6 +21,8 @@ import java.util.Optional;
  * Implémentation de HospitalStayRepository basée sur MySQL via JDBC.
  */
 public class MysqlHospitalStayRepository implements HospitalStayRepository {
+
+    private static final Logger logger = LoggerFactory.getLogger(MysqlHospitalStayRepository.class);
 
     private final String url;
     private final String user;
@@ -84,14 +88,17 @@ public class MysqlHospitalStayRepository implements HospitalStayRepository {
             }
 
             ps.executeUpdate();
+            logger.info("Hospital stay with id={} saved successfully", hospitalStay.getId());
             return hospitalStay;
         } catch (SQLException e) {
+            logger.error("Failed to save hospital stay with id={}", hospitalStay.getId(), e);
             throw new IllegalStateException("Failed to save hospital stay with id " + hospitalStay.getId(), e);
         }
     }
 
     @Override
     public Optional<HospitalStay> findById(String id) {
+        logger.debug("Looking for hospital stay with id={}", id);
         String sql = "SELECT * FROM hospital_stay WHERE id = ?";
 
         try (Connection conn = getConnection();
@@ -100,17 +107,21 @@ public class MysqlHospitalStayRepository implements HospitalStayRepository {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
+                    logger.debug("Hospital stay with id={} found", id);
                     return Optional.of(mapRowToHospitalStay(rs));
                 }
+                logger.debug("Hospital stay with id={} not found", id);
                 return Optional.empty();
             }
         } catch (SQLException e) {
+            logger.error("Failed to find hospital stay with id={}", id, e);
             throw new IllegalStateException("Failed to find hospital stay with id " + id, e);
         }
     }
 
     @Override
     public List<HospitalStay> findAllByPatientId(String patientId) {
+        logger.debug("Looking for all stays for patient with id={}", patientId);
         String sql = "SELECT * FROM hospital_stay WHERE patient_id = ? ORDER BY admission_date DESC";
         List<HospitalStay> stays = new ArrayList<>();
 
@@ -123,14 +134,17 @@ public class MysqlHospitalStayRepository implements HospitalStayRepository {
                     stays.add(mapRowToHospitalStay(rs));
                 }
             }
+            logger.debug("Found {} stays for patient with id={}", stays.size(), patientId);
             return stays;
         } catch (SQLException e) {
+            logger.error("Failed to load stays for patient with id={}", patientId, e);
             throw new IllegalStateException("Failed to load stays for patient " + patientId, e);
         }
     }
 
     @Override
     public List<HospitalStay> findAll() {
+        logger.info("Loading all hospital stays");
         String sql = "SELECT * FROM hospital_stay ORDER BY admission_date DESC";
         List<HospitalStay> stays = new ArrayList<>();
 
@@ -141,14 +155,17 @@ public class MysqlHospitalStayRepository implements HospitalStayRepository {
             while (rs.next()) {
                 stays.add(mapRowToHospitalStay(rs));
             }
+            logger.info("Loaded {} hospital stays", stays.size());
             return stays;
         } catch (SQLException e) {
+            logger.error("Failed to load all hospital stays", e);
             throw new IllegalStateException("Failed to load all hospital stays", e);
         }
     }
 
     @Override
     public List<HospitalStay> findActiveStaysOn(LocalDate date) {
+        logger.info("Loading all active stays on {}", date);
         // Séjours actifs:
         // admission_date <= date
         // AND (discharge_date_effective IS NULL OR discharge_date_effective >= date)
@@ -173,8 +190,10 @@ public class MysqlHospitalStayRepository implements HospitalStayRepository {
                     stays.add(mapRowToHospitalStay(rs));
                 }
             }
+            logger.info("Loaded {} active stays on {}", stays.size(), date);
             return stays;
         } catch (SQLException e) {
+            logger.error("Failed to load active stays on {}", date, e);
             throw new IllegalStateException("Failed to load active stays on " + date, e);
         }
     }

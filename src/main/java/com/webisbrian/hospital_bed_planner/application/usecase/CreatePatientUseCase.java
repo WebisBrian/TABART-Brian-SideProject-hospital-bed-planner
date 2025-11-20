@@ -3,10 +3,14 @@ package com.webisbrian.hospital_bed_planner.application.usecase;
 import com.webisbrian.hospital_bed_planner.domain.model.Patient;
 import com.webisbrian.hospital_bed_planner.domain.model.Sex;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 
 public class CreatePatientUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(CreatePatientUseCase.class);
 
     private final PatientRepository patientRepository;
 
@@ -23,10 +27,14 @@ public class CreatePatientUseCase {
                                  boolean isolationRequired,
                                  String phoneNumber,
                                  String notes) {
+
+        logger.info("Creating patient with id: {}", id);
+
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Patient id cannot be null or blank");
         }
         if (patientRepository.existsById(id)) {
+            logger.warn("Attempt to create patient with existing id={}", id);
             throw new IllegalArgumentException("Patient with id " + id + " already exists");
         }
 
@@ -58,6 +66,7 @@ public class CreatePatientUseCase {
 
         patientRepository.save(patient);
 
+        logger.info("Patient created successfully id={}", id);
         return patient;
     }
 }
