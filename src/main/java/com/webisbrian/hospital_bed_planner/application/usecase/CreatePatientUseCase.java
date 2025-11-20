@@ -33,6 +33,7 @@ public class CreatePatientUseCase {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Patient id cannot be null or blank");
         }
+
         if (patientRepository.existsById(id)) {
             logger.warn("Attempt to create patient with existing id={}", id);
             throw new IllegalArgumentException("Patient with id " + id + " already exists");
