@@ -6,6 +6,8 @@ import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -15,6 +17,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class PlacementService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PlacementService.class);
 
     private final PatientRepository patientRepository;
     private final BedRepository bedRepository;
@@ -44,6 +48,8 @@ public class PlacementService {
      * @throws IllegalArgumentException si le patient n'existe pas ou si les paramètres sont invalides
      */
     public Optional<Bed> suggestBedForPatient(String patientId, LocalDate date) {
+
+        logger.info("Suggesting bed for patientId={} on date={}", patientId, date);
         // 1. Validation simple des paramètres
         if (patientId == null || patientId.isBlank()) {
             throw new IllegalArgumentException("Patient id cannot be null or blank");
@@ -54,27 +60,34 @@ public class PlacementService {
 
         // 2. Vérifier que le patient existe
         if (patientRepository.findById(patientId).isEmpty()) {
+            logger.warn("Attempt to suggest bed for non-existing patientId={}", patientId);
             throw new IllegalArgumentException("Patient with id " + patientId + " does not exist");
         }
 
         // 3. Récupérer les séjours actifs à cette date
         List<HospitalStay> activeStays = hospitalStayRepository.findActiveStaysOn(date);
+        logger.debug("Active stays on {}: {}", date, activeStays.size());
 
         // 4. En déduire la liste des lits déjà occupés
         Set<String> occupiedBedIds = activeStays.stream()
                 .map(HospitalStay::getBedId)
                 .collect(Collectors.toSet());
+        logger.debug("Occupied bed ids: {}", occupiedBedIds);
+
 
         // 5. Récupérer tous les lits et filtrer
         //      - statut AVAILABLE
         //      - lit non occupé ce jour-là
-
-        return bedRepository.findAll().stream()
+        Optional<Bed> suggestedBed = bedRepository.findAll().stream()
                 .filter(bed -> bed.getStatus() == BedStatus.AVAILABLE)
                 .filter(bed -> !occupiedBedIds.contains(bed.getId()))
                 // 6. Trier par code pour avoir un comportement déterministe
                 .sorted(Comparator.comparing(Bed::getCode))
-                // 7. Retourner le premier lit trouvé
+                // 7. Récupérer le premier lit trouvé
                 .findFirst();
+        logger.info("Suggested bed for patientId={} on date={} -> {}",
+                patientId, date, suggestedBed.map(Bed::getId).orElse("none"));
+
+        return suggestedBed;
     }
 }

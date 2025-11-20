@@ -11,14 +11,16 @@ import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
 import com.webisbrian.hospital_bed_planner.domain.service.PlacementService;
-import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryBedRepository;
-import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryHospitalStayRepository;
-import com.webisbrian.hospital_bed_planner.infrastructure.inmemory.InMemoryPatientRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlBedRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlHospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.infrastructure.mysql.MysqlPatientRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
+import java.util.Properties;
 import java.util.Scanner;
 
 /**
@@ -26,57 +28,76 @@ import java.util.Scanner;
  */
 public class HospitalBedPlannerConsoleApp {
 
+    private static final Logger logger = LoggerFactory.getLogger(HospitalBedPlannerConsoleApp.class);
+
     private final Scanner scanner = new Scanner(System.in);
 
-    // Configuration DB (adapte ces valeurs à ton environnement local)
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/hospital_bed_manager?serverTimezone=Europe/Paris";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "root";
+    // Configuration DB chargée depuis db.properties
+    private final String dbUrl;
+    private final String dbUser;
+    private final String dbPassword;
 
     // Repositories MySQL
-    private final PatientRepository patientRepository =
-            new MysqlPatientRepository(DB_URL, DB_USER, DB_PASSWORD);
-
-    private final BedRepository bedRepository =
-            new MysqlBedRepository(DB_URL, DB_USER, DB_PASSWORD);
-
-    private final HospitalStayRepository hospitalStayRepository =
-            new MysqlHospitalStayRepository(DB_URL, DB_USER, DB_PASSWORD);
+    private final PatientRepository patientRepository;
+    private final BedRepository bedRepository;
+    private final HospitalStayRepository hospitalStayRepository;
 
     // Domain services
-    private final PlacementService placementService = new PlacementService(
-            patientRepository,
-            bedRepository,
-            hospitalStayRepository
-    );
+    private final PlacementService placementService;
 
-    private final CreatePatientUseCase createPatientUseCase = new CreatePatientUseCase(patientRepository);
-    private final CreateStayUseCase createStayUseCase = new CreateStayUseCase(hospitalStayRepository, patientRepository, bedRepository);
-    private final PlacePatientUseCase placePatientUseCase = new PlacePatientUseCase(placementService, hospitalStayRepository);
-    private final DischargePatientUseCase dischargePatientUseCase = new DischargePatientUseCase(hospitalStayRepository);
+    // Use cases
+    private final CreatePatientUseCase createPatientUseCase;
+    private final CreateStayUseCase createStayUseCase;
+    private final PlacePatientUseCase placePatientUseCase;
+    private final DischargePatientUseCase dischargePatientUseCase;
 
     public static void main(String[] args) {
         new HospitalBedPlannerConsoleApp().run();
     }
 
+    public HospitalBedPlannerConsoleApp() {
+        Properties props = loadDbProperties();
+        this.dbUrl = props.getProperty("db.url");
+        this.dbUser = props.getProperty("db.user");
+        this.dbPassword = props.getProperty("db.password");
+
+        this.patientRepository = new MysqlPatientRepository(dbUrl, dbUser, dbPassword);
+        this.bedRepository = new MysqlBedRepository(dbUrl, dbUser, dbPassword);
+        this.hospitalStayRepository = new MysqlHospitalStayRepository(dbUrl, dbUser, dbPassword);
+
+        this.placementService = new PlacementService(patientRepository, bedRepository, hospitalStayRepository);
+
+        this.createPatientUseCase = new CreatePatientUseCase(patientRepository);
+        this.createStayUseCase = new CreateStayUseCase(hospitalStayRepository, patientRepository, bedRepository);
+        this.placePatientUseCase = new PlacePatientUseCase(placementService, hospitalStayRepository);
+        this.dischargePatientUseCase = new DischargePatientUseCase(hospitalStayRepository);
+    }
+
     public void run() {
+        logger.info("Starting HospitalBedPlannerConsoleApp");
         boolean running = true;
 
         while (running) {
             printMainMenu();
             String choice = scanner.nextLine().trim();
 
-            switch (choice) {
-                case "1" -> handleCreatePatient();
-                case "2" -> handleCreateStay();
-                case "3" -> handlePlacePatient();
-                case "4" -> handleDischargePatient();
-                case "5" -> handleVisualisationMenu();
-                case "0" -> {
-                    System.out.println("Au revoir.");
-                    running = false;
+            try {
+                switch (choice) {
+                    case "1" -> handleCreatePatient();
+                    case "2" -> handleCreateStay();
+                    case "3" -> handlePlacePatient();
+                    case "4" -> handleDischargePatient();
+                    case "5" -> handleVisualisationMenu();
+                    case "0" -> {
+                        System.out.println("Au revoir.");
+                        logger.info("Application stopped by user");
+                        running = false;
+                    }
+                    default -> System.out.println("Choix invalide, merci de réessayer.");
                 }
-                default -> System.out.println("Choix invalide, merci de réessayer.");
+            } catch (Exception e) {
+                logger.error("Unexpected error in main loop", e);
+                System.out.println("Une erreur inattendue est survenue. Consultez les logs.");
             }
         }
     }
@@ -129,6 +150,7 @@ public class HospitalBedPlannerConsoleApp {
         if (notes.isEmpty()) notes = null;
 
         try {
+            logger.info("Console: creating patient id={}", id);
             createPatientUseCase.createPatient(
                     id,
                     firstName,
@@ -142,6 +164,7 @@ public class HospitalBedPlannerConsoleApp {
             );
             System.out.println("Patient créé avec succès !");
         } catch (Exception e) {
+            logger.error("Error while creating patient id={}", id, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -172,6 +195,7 @@ public class HospitalBedPlannerConsoleApp {
         }
 
         try {
+            logger.info("Console: creating stay id={}", stayId);
             createStayUseCase.createStay(
                     stayId,
                     patientId,
@@ -182,6 +206,7 @@ public class HospitalBedPlannerConsoleApp {
             );
             System.out.println("Séjour créé avec succès !");
         } catch (Exception e) {
+            logger.error("Error while creating stay id={}", stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -210,6 +235,7 @@ public class HospitalBedPlannerConsoleApp {
         }
 
         try {
+            logger.info("Console: placing patient id={} on stay id={}", patientId, stayId);
             var result = placePatientUseCase.placePatient(
                     stayId,
                     patientId,
@@ -232,6 +258,7 @@ public class HospitalBedPlannerConsoleApp {
             System.out.println("  - Admission : " + stay.getAdmissionDate());
             System.out.println("  - Sortie prévue : " + stay.getDischargeDatePlanned());
         } catch (Exception e) {
+            logger.error("Error while placing patient id={} on stay id={}", patientId, stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
@@ -245,6 +272,7 @@ public class HospitalBedPlannerConsoleApp {
         LocalDate dischargeDate = readDateFlexible("Date de sortie effective");
 
         try {
+            logger.info("Console: discharging stay id={}", stayId);
             HospitalStay updatedStay = dischargePatientUseCase.discharge(stayId, dischargeDate);
 
             System.out.println("Sortie enregistrée avec succès !");
@@ -255,11 +283,13 @@ public class HospitalBedPlannerConsoleApp {
             System.out.println("  - Sortie prévue : " + updatedStay.getDischargeDatePlanned());
             System.out.println("  - Sortie effective : " + updatedStay.getDischargeDateEffective());
         } catch (Exception e) {
+            logger.error("Error while discharging stay id={}", stayId, e);
             System.out.println("Erreur : " + e.getMessage());
         }
     }
 
     private void handleVisualisationMenu() {
+        logger.info("Console: entering visualisation menu");
         boolean back = false;
 
         while (!back) {
@@ -340,7 +370,23 @@ public class HospitalBedPlannerConsoleApp {
         ));
     }
 
-    // --- Méthodes utilitaires de lecture de dates ---
+    // --- Méthodes utilitaires ---
+
+    private Properties loadDbProperties() {
+        logger.info("Loading db.properties");
+        Properties properties = new Properties();
+
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream("db.properties")) {
+            if (input == null) {
+                throw new IllegalStateException("db.properties not found on classpath");
+            }
+            properties.load(input);
+            return properties;
+        } catch (IOException e) {
+            logger.error("Failed to load db.properties", e);
+            throw new IllegalStateException("Failed to load db.properties", e);
+        }
+    }
 
     /**
      * Tente de parser une date avec plusieurs formats :

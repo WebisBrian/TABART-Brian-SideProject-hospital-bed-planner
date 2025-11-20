@@ -5,6 +5,8 @@ import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.model.StayType;
 import com.webisbrian.hospital_bed_planner.domain.service.PlacementService;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -14,6 +16,8 @@ import java.util.Optional;
  * à une date donnée, en créant un séjour d'hospitalisation.
  */
 public class PlacePatientUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(PlacePatientUseCase.class);
 
     private final PlacementService placementService;
     private final HospitalStayRepository hospitalStayRepository;
@@ -48,7 +52,9 @@ public class PlacePatientUseCase {
                                                LocalDate admissionDate,
                                                LocalDate plannedDischargeDate,
                                                StayType stayType) {
-        // 1. Validation des paramètres
+
+        logger.info("Placing patient with id {} on date {}", patientId, admissionDate);
+
         if (stayId == null || stayId.isBlank()) {
             throw new IllegalArgumentException("Stay id cannot be null or blank");
         }
@@ -62,20 +68,22 @@ public class PlacePatientUseCase {
             throw new IllegalArgumentException("Stay type cannot be null");
         }
         if (plannedDischargeDate != null && plannedDischargeDate.isBefore(admissionDate)) {
+            logger.warn("Invalid stay dates: admission={}, plannedDischarge={}", admissionDate, plannedDischargeDate);
             throw new IllegalArgumentException("Planned discharge date cannot be before admission date");
         }
 
-        // 2. Demander au service de placement un lit pour ce patient et cette date
+        // 1. Demander au service de placement un lit pour ce patient et cette date
         Optional<Bed> suggestedBed = placementService.suggestBedForPatient(patientId, admissionDate);
 
-        // 3. Si aucun lit disponible, on retourne Optional.empty()
+        // 2. Si aucun lit disponible, on retourne Optional.empty()
         if (suggestedBed.isEmpty()) {
+            logger.warn("No bed available for patient with id {} on date {}", patientId, admissionDate);
             return Optional.empty();
         }
 
         Bed bed = suggestedBed.get();
 
-        // 4. Créer le séjour (sortie effective inconnue au moment du placement)
+        // 3. Créer le séjour (sortie effective inconnue au moment du placement)
         HospitalStay stay = new HospitalStay(
                 stayId,
                 patientId,
@@ -86,10 +94,9 @@ public class PlacePatientUseCase {
                 null
         );
 
-        // 5. Persister le séjour
         hospitalStayRepository.save(stay);
 
-        // 6. Retourner le séjour créé
+        logger.info("Patient placed with id {} on bed {}", patientId, bed.getId());
         return Optional.of(stay);
     }
 }
