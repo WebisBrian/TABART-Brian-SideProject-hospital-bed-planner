@@ -45,7 +45,7 @@ class PlacementServiceTest {
         patientRepository.save(patient);
 
         Bed bed1 = new Bed("BED-1", "ROOM-1", "A01-1", BedStatus.AVAILABLE, false);
-        Bed bed2 = new Bed("BED-2", "ROOM-1","A02-1", BedStatus.AVAILABLE, false);
+        Bed bed2 = new Bed("BED-2", "ROOM-1", "A02-1", BedStatus.AVAILABLE, false);
         bedRepository.save(bed1);
         bedRepository.save(bed2);
 
@@ -107,7 +107,7 @@ class PlacementServiceTest {
         patientRepository.save(targetPatient);
 
         Bed bed1 = new Bed("BED-1", "ROOM-1", "A01-1", BedStatus.AVAILABLE, false);
-        Bed bed2 = new Bed("BED-2", "ROOM-1","A02-1", BedStatus.AVAILABLE, false);
+        Bed bed2 = new Bed("BED-2", "ROOM-1", "A02-1", BedStatus.AVAILABLE, false);
         bedRepository.save(bed1);
         bedRepository.save(bed2);
 
@@ -188,5 +188,73 @@ class PlacementServiceTest {
 
         // Assert
         assertTrue(result.isEmpty(), "Aucun lit ne devrait être proposé quand tous les lits sont indisponibles");
+    }
+
+    @Test
+    void suggestBedForPatient_shouldPreferIsolationCapableBed_whenPatientNeedsIsolation() {
+        // Arrange
+        String patientId = "P-ISO";
+        Patient patient = new Patient(
+                patientId,
+                "Bob",
+                "Durand",
+                LocalDate.of(1975, 5, 10),
+                Sex.MALE,
+                false,
+                true,   // needIsolation
+                "0102030406",
+                null
+        );
+        patientRepository.save(patient);
+
+        // Lit normal disponible
+        Bed bed1 = new Bed("BED-1", "ROOM-1", "A01-1", BedStatus.AVAILABLE, false);
+        // Lit d'isolement disponible
+        Bed bed2 = new Bed("BED-2", "ROOM-2", "A01-2", BedStatus.AVAILABLE, true);
+        bedRepository.save(bed1);
+        bedRepository.save(bed2);
+
+        LocalDate date = LocalDate.of(2025, 1, 15);
+
+        // Act
+        Optional<Bed> result = placementService.suggestBedForPatient(patientId, date);
+
+        // Assert
+        assertTrue(result.isPresent(), "Un lit devrait être proposé pour un patient en isolement");
+        Bed chosen = result.get();
+        assertEquals("BED-2", chosen.getId(), "Le lit d'isolement devrait être choisi");
+        assertTrue(chosen.isIsolationCapable());
+    }
+
+    @Test
+    void suggestBedForPatient_shouldReturnEmpty_whenPatientNeedsIsolationAndNoIsolationCapableBedAvailable() {
+        // Arrange
+        String patientId = "P-ISO";
+        Patient patient = new Patient(
+                patientId,
+                "Claire",
+                "Dupont",
+                LocalDate.of(1990, 3, 15),
+                Sex.FEMALE,
+                false,
+                true,   // needIsolation
+                "0102030407",
+                null
+        );
+        patientRepository.save(patient);
+
+        // Lits disponibles mais aucun compatible isolement
+        Bed bed1 = new Bed("BED-1", "ROOM-1", "A01-1", BedStatus.AVAILABLE, false);
+        Bed bed2 = new Bed("BED-2", "ROOM-2", "A02-1", BedStatus.AVAILABLE, false);
+        bedRepository.save(bed1);
+        bedRepository.save(bed2);
+
+        LocalDate date = LocalDate.of(2025, 1, 15);
+
+        // Act
+        Optional<Bed> result = placementService.suggestBedForPatient(patientId, date);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Aucun lit ne devrait être proposé sans lit d'isolement disponible");
     }
 }
