@@ -1,5 +1,6 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.UpdateBedStatusUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.model.Bed;
 import com.webisbrian.hospital_bed_planner.domain.model.BedStatus;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
@@ -9,7 +10,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Cas d'usage permettant de mettre à jour le statut d'un lit.
  */
-public class UpdateBedStatusUseCase {
+public class UpdateBedStatusUseCase implements UpdateBedStatusUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateBedStatusUseCase.class);
 

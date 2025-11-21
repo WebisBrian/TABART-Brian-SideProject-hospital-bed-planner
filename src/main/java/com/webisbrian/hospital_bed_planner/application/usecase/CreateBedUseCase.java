@@ -1,12 +1,13 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.CreateBedUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.model.Bed;
 import com.webisbrian.hospital_bed_planner.domain.model.BedStatus;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CreateBedUseCase {
+public class CreateBedUseCase implements CreateBedUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(CreateBedUseCase.class);
 

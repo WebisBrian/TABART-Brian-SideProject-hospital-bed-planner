@@ -1,5 +1,6 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.DeleteBedUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,7 @@ import org.slf4j.LoggerFactory;
  * - le lit doit exister, sinon une exception est levée.
  *
  */
-public class DeleteBedUseCase {
+public class DeleteBedUseCase implements DeleteBedUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(DeleteBedUseCase.class);
 

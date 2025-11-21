@@ -1,5 +1,6 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.DischargePatientUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import org.slf4j.Logger;
@@ -12,7 +13,7 @@ import java.util.Optional;
  * Use case d'application permettant d'enregistrer la sortie effective
  * d'un patient pour un séjour donné.
  */
-public class DischargePatientUseCase {
+public class DischargePatientUseCase implements DischargePatientUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(DischargePatientUseCase.class);
 
