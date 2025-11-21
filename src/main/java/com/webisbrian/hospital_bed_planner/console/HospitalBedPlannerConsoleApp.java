@@ -1,12 +1,7 @@
 package com.webisbrian.hospital_bed_planner.console;
 
-import com.webisbrian.hospital_bed_planner.application.usecase.CreatePatientUseCase;
-import com.webisbrian.hospital_bed_planner.application.usecase.CreateStayUseCase;
-import com.webisbrian.hospital_bed_planner.application.usecase.DischargePatientUseCase;
-import com.webisbrian.hospital_bed_planner.application.usecase.PlacePatientUseCase;
-import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
-import com.webisbrian.hospital_bed_planner.domain.model.Sex;
-import com.webisbrian.hospital_bed_planner.domain.model.StayType;
+import com.webisbrian.hospital_bed_planner.application.usecase.*;
+import com.webisbrian.hospital_bed_planner.domain.model.*;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
@@ -50,6 +45,9 @@ public class HospitalBedPlannerConsoleApp {
     private final CreateStayUseCase createStayUseCase;
     private final PlacePatientUseCase placePatientUseCase;
     private final DischargePatientUseCase dischargePatientUseCase;
+    private final CreateBedUseCase createBedUseCase;
+    private final UpdateBedStatusUseCase updateBedStatusUseCase;
+    private final DeleteBedUseCase deleteBedUseCase;
 
     public static void main(String[] args) {
         new HospitalBedPlannerConsoleApp().run();
@@ -71,6 +69,9 @@ public class HospitalBedPlannerConsoleApp {
         this.createStayUseCase = new CreateStayUseCase(hospitalStayRepository, patientRepository, bedRepository);
         this.placePatientUseCase = new PlacePatientUseCase(placementService, hospitalStayRepository);
         this.dischargePatientUseCase = new DischargePatientUseCase(hospitalStayRepository);
+        this.createBedUseCase = new CreateBedUseCase(bedRepository);
+        this.updateBedStatusUseCase = new UpdateBedStatusUseCase(bedRepository);
+        this.deleteBedUseCase = new DeleteBedUseCase(bedRepository);
     }
 
     public void run() {
@@ -88,6 +89,7 @@ public class HospitalBedPlannerConsoleApp {
                     case "3" -> handlePlacePatient();
                     case "4" -> handleDischargePatient();
                     case "5" -> handleVisualisationMenu();
+                    case "6" -> handleBedManagementMenu();
                     case "0" -> {
                         System.out.println("Au revoir.");
                         logger.info("Application stopped by user");
@@ -109,9 +111,12 @@ public class HospitalBedPlannerConsoleApp {
         System.out.println("3. Placer un patient (lit proposé automatiquement)");
         System.out.println("4. Enregistrer une sortie (discharge)");
         System.out.println("5. Visualisation");
+        System.out.println("6. Gestion des lits");
         System.out.println("0. Quitter");
         System.out.print("Votre choix : ");
     }
+
+    // --- Patients / séjours / placement ---
 
     private void handleCreatePatient() {
         System.out.println("--- Création d'un patient ---");
@@ -305,6 +310,7 @@ public class HospitalBedPlannerConsoleApp {
             }
         }
     }
+
     private void printVisualisationMenu() {
         System.out.println("=== Visualisation ===");
         System.out.println("1. Lister tous les patients");
@@ -368,6 +374,144 @@ public class HospitalBedPlannerConsoleApp {
                         + " | admission=" + s.getAdmissionDate()
                         + " | sortie prévue=" + s.getDischargeDatePlanned()
         ));
+    }
+
+    // --- Gestion des lits ---
+
+    private void handleBedManagementMenu() {
+        logger.info("Console: entering bed management menu");
+        boolean back = false;
+
+        while (!back) {
+            printBedManagementMenu();
+            String choice = scanner.nextLine().trim();
+
+            switch (choice) {
+                case "1" -> handleCreateBed();
+                case "2" -> handleUpdateBedStatus();
+                case "3" -> handleDeleteBed();
+                case "4" -> listBeds();
+                case "0" -> back = true;
+                default -> System.out.println("Choix invalide, merci de réessayer.");
+            }
+        }
+    }
+
+    private void printBedManagementMenu() {
+        System.out.println("=== Gestion des lits ===");
+        System.out.println("1. Créer un lit");
+        System.out.println("2. Changer le statut d'un lit");
+        System.out.println("3. Supprimer un lit");
+        System.out.println("4. Lister les lits");
+        System.out.println("0. Retour au menu principal");
+        System.out.print("Votre choix : ");
+    }
+
+    private void handleCreateBed() {
+        System.out.println("--- Création d'un lit ---");
+
+        System.out.print("ID du lit : ");
+        String id = scanner.nextLine().trim();
+
+        System.out.print("ID de la chambre : ");
+        String roomId = scanner.nextLine().trim();
+
+        System.out.print("Code du lit (ex: A01-1) : ");
+        String code = scanner.nextLine().trim();
+
+        System.out.print("Statut (AVAILABLE/OCCUPIED/CLEANING/OUT_OF_ORDER, ENTER pour AVAILABLE) : ");
+        String statusInput = scanner.nextLine().trim();
+        BedStatus status = null;
+        if (!statusInput.isBlank()) {
+            try {
+                status = BedStatus.valueOf(statusInput.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid bed status input: {}", statusInput, e);
+                System.out.println("Statut invalide, le lit sera créé en statut AVAILABLE.");
+            }
+        }
+
+        System.out.print("Lit compatible isolement ? (o/n) : ");
+        boolean isolationCapable = scanner.nextLine().trim().equalsIgnoreCase("o");
+
+        try {
+            logger.info("Console: creating bed id={}", id);
+            Bed bed = createBedUseCase.createBed(
+                    id,
+                    roomId,
+                    code,
+                    status,
+                    isolationCapable
+            );
+            System.out.println("Lit créé avec succès : " + bed.getId() + " (" + bed.getCode() + ")");
+        } catch (Exception e) {
+            logger.error("Error while creating bed id={}", id, e);
+            System.out.println("Erreur : " + e.getMessage());
+        }
+    }
+
+    private void handleUpdateBedStatus() {
+        System.out.println("--- Changer le statut d'un lit ---");
+
+        System.out.print("ID du lit : ");
+        String bedId = scanner.nextLine().trim();
+
+        System.out.print("Nouveau statut (AVAILABLE/OCCUPIED/CLEANING/OUT_OF_ORDER) : ");
+        String statusInput = scanner.nextLine().trim();
+
+        BedStatus newStatus;
+        try {
+            newStatus = BedStatus.valueOf(statusInput.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid bed status input: {}", statusInput, e);
+            System.out.println("Statut invalide.");
+            return;
+        }
+
+        try {
+            logger.info("Console: updating bed status id={} to {}", bedId, newStatus);
+            Bed updated = updateBedStatusUseCase.updateStatus(bedId, newStatus);
+            System.out.println("Statut mis à jour : " + updated.getId() + " -> " + updated.getStatus());
+        } catch (Exception e) {
+            logger.error("Error while updating bed status id={}", bedId, e);
+            System.out.println("Erreur : " + e.getMessage());
+        }
+    }
+
+    private void handleDeleteBed() {
+        System.out.println("--- Supprimer un lit ---");
+
+        System.out.print("ID du lit : ");
+        String bedId = scanner.nextLine().trim();
+
+        try {
+            logger.info("Console: deleting bed id={}", bedId);
+            deleteBedUseCase.deleteBed(bedId);
+            System.out.println("Lit supprimé avec succès.");
+        } catch (Exception e) {
+            logger.error("Error while deleting bed id={}", bedId, e);
+            System.out.println("Erreur : " + e.getMessage());
+        }
+    }
+
+    private void listBeds() {
+        var beds = bedRepository.findAll();
+
+        if (beds.isEmpty()) {
+            System.out.println("Aucun lit enregistré.");
+            return;
+        }
+
+        System.out.println("--- Liste des lits ---");
+        for (Bed bed : beds) {
+            System.out.println(
+                    "- " + bed.getId()
+                            + " | chambre=" + bed.getRoomId()
+                            + " | code=" + bed.getCode()
+                            + " | statut=" + bed.getStatus()
+                            + " | isolement=" + (bed.isIsolationCapable() ? "oui" : "non")
+            );
+        }
     }
 
     // --- Méthodes utilitaires ---
