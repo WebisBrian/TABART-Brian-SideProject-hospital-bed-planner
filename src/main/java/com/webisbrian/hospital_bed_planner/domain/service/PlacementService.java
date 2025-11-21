@@ -3,11 +3,10 @@ package com.webisbrian.hospital_bed_planner.domain.service;
 import com.webisbrian.hospital_bed_planner.domain.model.Bed;
 import com.webisbrian.hospital_bed_planner.domain.model.BedStatus;
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
+import com.webisbrian.hospital_bed_planner.domain.model.Patient;
 import com.webisbrian.hospital_bed_planner.domain.repository.BedRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -16,9 +15,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service de placement des patients dans les lits.
+ */
 public class PlacementService {
-
-    private static final Logger logger = LoggerFactory.getLogger(PlacementService.class);
 
     private final PatientRepository patientRepository;
     private final BedRepository bedRepository;
@@ -35,11 +35,12 @@ public class PlacementService {
 
     /**
      * Propose un lit pour un patient donné à une date donnée.
-     * <p>
-     * Règles MVP :
+     *
+     * Règles MVP (augmentées) :
      * - Le patient doit exister.
      * - Le lit doit être en statut AVAILABLE.
      * - Le lit ne doit pas être déjà occupé via un séjour actif ce jour-là.
+     * - Si le patient nécessite un isolement, le lit doit être isolationCapable.
      * - Parmi les lits éligibles, on choisit celui avec le plus petit code (ordre alphabétique).
      *
      * @param patientId identifiant du patient
@@ -48,8 +49,6 @@ public class PlacementService {
      * @throws IllegalArgumentException si le patient n'existe pas ou si les paramètres sont invalides
      */
     public Optional<Bed> suggestBedForPatient(String patientId, LocalDate date) {
-
-        logger.info("Suggesting bed for patientId={} on date={}", patientId, date);
         // 1. Validation simple des paramètres
         if (patientId == null || patientId.isBlank()) {
             throw new IllegalArgumentException("Patient id cannot be null or blank");
@@ -58,36 +57,29 @@ public class PlacementService {
             throw new IllegalArgumentException("Date cannot be null");
         }
 
-        // 2. Vérifier que le patient existe
-        if (patientRepository.findById(patientId).isEmpty()) {
-            logger.warn("Attempt to suggest bed for non-existing patientId={}", patientId);
-            throw new IllegalArgumentException("Patient with id " + patientId + " does not exist");
-        }
+        // 2. Récupérer le patient (et vérifier qu'il existe)
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient with id " + patientId + " does not exist"));
 
         // 3. Récupérer les séjours actifs à cette date
         List<HospitalStay> activeStays = hospitalStayRepository.findActiveStaysOn(date);
-        logger.debug("Active stays on {}: {}", date, activeStays.size());
 
         // 4. En déduire la liste des lits déjà occupés
         Set<String> occupiedBedIds = activeStays.stream()
                 .map(HospitalStay::getBedId)
                 .collect(Collectors.toSet());
-        logger.debug("Occupied bed ids: {}", occupiedBedIds);
-
 
         // 5. Récupérer tous les lits et filtrer
-        //      - statut AVAILABLE
-        //      - lit non occupé ce jour-là
-        Optional<Bed> suggestedBed = bedRepository.findAll().stream()
+        return bedRepository.findAll().stream()
+                // lit en statut AVAILABLE
                 .filter(bed -> bed.getStatus() == BedStatus.AVAILABLE)
+                // lit non occupé ce jour-là
                 .filter(bed -> !occupiedBedIds.contains(bed.getId()))
+                // si patient en isolement, ne garder que les lits compatibles
+                .filter(bed -> !patient.isIsolationRequired() || bed.isIsolationCapable())
                 // 6. Trier par code pour avoir un comportement déterministe
                 .sorted(Comparator.comparing(Bed::getCode))
-                // 7. Récupérer le premier lit trouvé
+                // 7. Retourner le premier lit trouvé
                 .findFirst();
-        logger.info("Suggested bed for patientId={} on date={} -> {}",
-                patientId, date, suggestedBed.map(Bed::getId).orElse("none"));
-
-        return suggestedBed;
     }
 }
