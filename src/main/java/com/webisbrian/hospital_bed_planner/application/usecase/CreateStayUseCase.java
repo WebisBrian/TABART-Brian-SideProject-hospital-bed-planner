@@ -1,5 +1,6 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.CreateStayUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.model.HospitalStay;
 import com.webisbrian.hospital_bed_planner.domain.model.StayType;
 import com.webisbrian.hospital_bed_planner.domain.repository.HospitalStayRepository;
@@ -14,7 +15,7 @@ import java.time.LocalDate;
  * Use case permettant de créer un séjour d'hospitalisation
  * en spécifiant explicitement le lit (pas de placement automatique).
  */
-public class CreateStayUseCase {
+public class CreateStayUseCase implements CreateStayUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(CreateStayUseCase.class);
 

@@ -1,5 +1,6 @@
 package com.webisbrian.hospital_bed_planner.application.usecase;
 
+import com.webisbrian.hospital_bed_planner.application.usecase.port.CreatePatientUseCasePort;
 import com.webisbrian.hospital_bed_planner.domain.model.Patient;
 import com.webisbrian.hospital_bed_planner.domain.model.Sex;
 import com.webisbrian.hospital_bed_planner.domain.repository.PatientRepository;
@@ -8,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 
-public class CreatePatientUseCase {
+public class CreatePatientUseCase implements CreatePatientUseCasePort {
 
     private static final Logger logger = LoggerFactory.getLogger(CreatePatientUseCase.class);
 
